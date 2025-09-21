@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/x-icon" href="https://i.pinimg.com/736x/0d/71/2a/0d712a0b6805c0b44386339048bdfce5.jpg?format=png&name=900x900">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'slide-up': 'slide-up 0.3s ease-out',
+                        'bounce-soft': 'bounce-soft 1s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        'float': { '0%, 100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-10px)' } },
+                        'slide-up': { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        'bounce-soft': { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.05)' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(139, 92, 246, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #8b5cf6, #a855f7); border-radius: 10px; }
+        .bg-glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .bg-glass-dark { background: rgba(139, 92, 246, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(139, 92, 246, 0.2); }
+        .message-enter { animation: slide-up 0.3s ease-out; }
+        .typing-dot { animation: bounce-soft 1s ease-in-out infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.1s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.2s; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2); }
+        .audio-player { background: rgba(139, 92, 246, 0.1); border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 8px; }
+        .pdf-viewer { background: rgba(139, 92, 246, 0.1); border: 2px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 8px; }
+        
+        /* Styling for code blocks */
+        .code-block {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: auto;
+            position: relative;
+            border: 1px solid #333;
+        }
+        
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .code-language {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+        }
+        
+        .copy-btn {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #d8b4fe;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.6);
+        }
+        
+        .copy-btn.copied {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.4);
+            color: #86efac;
+        }
+        
+        .code-content {
+            white-space: pre-wrap;
+        }
+        
+        /* Styling for highlighted text */
+        .highlighted-text {
+            background-color: rgba(255, 255, 0, 0.2); /* Yellow highlight with transparency */
+            padding: 0 2px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-indigo-400 relative overflow-hidden">
+    
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-float"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-float" style="animation-delay: 2s;"></div>
+    </div>
+
+    <div class="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="w-full max-w-4xl mx-auto flex flex-col h-[90vh] rounded-3xl shadow-2xl bg-glass overflow-hidden backdrop-blur-xl border border-white/20">
+            
+            <div class="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white p-6 text-center relative overflow-hidden">
+                <h1 class="font-bold text-2xl tracking-wide drop-shadow-lg">AI Chat simple</h1>
+                <p class="text-sm mt-1 text-white/80">Powered by Rapikuzu</p>
+            </div>
+
+            <div id="chat" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gradient-to-b from-white/50 to-white/30">
+                <div class="flex justify-center mb-8">
+                    <div class="bg-glass-dark rounded-2xl p-4 text-center max-w-md">
+                        <div class="text-2xl mb-2">Hai 👋</div>
+                        <p class="text-gray-700 font-medium">Selamat datang! Silakan mulai percakapan dengan AI.</p>
+                        <p class="text-sm text-gray-500 mt-2">Ai ini dibuat oleh Rapikuzu. Untuk backend menggunakan gemini API.</p>
+                        <p class="text-xs text-gray-400 mt-1">✨ Mendukung: Gambar, Video, Audio, dan PDF</p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="form" class="bg-glass border-t border-white/20 backdrop-blur-xl">
+                <div id="file-preview" class="hidden p-4 border-b border-white/10">
+                    <div class="bg-glass-dark rounded-xl p-3 flex items-center justify-between hover-lift transition-all duration-300">
+                        <div id="preview-content" class="flex items-center space-x-3"></div>
+                        <button type="button" id="remove-file" class="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-100/20 transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="p-6">
+                    <div class="flex items-end space-x-3">
+                        <div class="flex-1 relative">
+                            <textarea name="text" placeholder="Ketik pesan..." rows="1" class="w-full resize-none p-4 pr-12 bg-white/80 border-2 border-purple-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-purple-300/50 focus:border-purple-400 transition-all duration-300 text-gray-800 placeholder-gray-500" oninput="autoResize(this)"></textarea>
+                        </div>
+                        
+                        <input type="file" name="file" accept="image/*,video/mp4,audio/*,application/pdf" class="hidden" id="file-upload">
+                        
+                        <label for="file-upload" class="p-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white cursor-pointer hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 rounded-xl hover-lift">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                        </label>
+                        
+                        <button type="submit" class="p-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:from-violet-600 hover:to-purple-600 transition-all duration-200 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed hover-lift group">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform group-hover:rotate-12 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const chat = document.getElementById("chat");
+        const form = document.getElementById("form");
+        const textarea = form.querySelector("textarea");
+        const fileInput = document.getElementById("file-upload");
+        const filePreview = document.getElementById("file-preview");
+        const previewContent = document.getElementById("preview-content");
+        const removeFileBtn = document.getElementById("remove-file");
+        
+        let selectedFile = null;
+        let isTyping = false;
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            const maxHeight = 120;
+            const newHeight = Math.min(el.scrollHeight, maxHeight);
+            el.style.height = newHeight + 'px';
+            el.style.overflowY = newHeight === maxHeight ? 'auto' : 'hidden';
+        }
+
+        function getFileIcon(fileType) {
+            const icons = {
+                'image': `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
+                'video': `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`,
+                'audio': `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>`,
+                'pdf': `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`
+            };
+            const type = fileType === 'application/pdf' ? 'pdf' : fileType.split('/')[0];
+            return icons[type] || icons.audio;
+        }
+
+        function showTypingIndicator() {
+            if (isTyping) return;
+            isTyping = true;
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'flex justify-start mb-4 message-enter';
+            typingDiv.innerHTML = `
+                <div class="bg-glass-dark rounded-2xl p-4 max-w-xs">
+                    <div class="flex items-center space-x-2">
+                        <div class="flex space-x-1">
+                            <div class="w-2 h-2 bg-purple-400 rounded-full typing-dot"></div>
+                            <div class="w-2 h-2 bg-purple-500 rounded-full typing-dot"></div>
+                            <div class="w-2 h-2 bg-purple-600 rounded-full typing-dot"></div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            chat.appendChild(typingDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+            isTyping = false;
+        }
+
+        function showFilePreview(file) {
+            selectedFile = file;
+            const fileType = file.type;
+            previewContent.innerHTML = '';
+            
+            if (fileType.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.className = 'h-16 w-16 object-cover rounded-xl shadow-lg border-2 border-white/50';
+                img.onload = () => URL.revokeObjectURL(img.src);
+                
+                const fileInfo = document.createElement('div');
+                fileInfo.innerHTML = `<div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full inline-block mt-1">${(file.size / 1024).toFixed(1)} KB</div>`;
+                
+                previewContent.appendChild(img);
+                previewContent.appendChild(fileInfo);
+            } else if (fileType === 'video/mp4') {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.className = 'h-16 w-24 object-cover rounded-xl shadow-lg border-2 border-white/50';
+                video.muted = true;
+                video.onloadeddata = () => URL.revokeObjectURL(video.src);
+                
+                const fileInfo = document.createElement('div');
+                fileInfo.innerHTML = `<div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full inline-block mt-1">${(file.size / 1024 / 1024).toFixed(1)} MB</div>`;
+                
+                previewContent.appendChild(video);
+                previewContent.appendChild(fileInfo);
+            } else if (fileType.startsWith('audio/')) {
+                const audioContainer = document.createElement('div');
+                audioContainer.className = 'flex items-center space-x-3';
+                
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'flex-shrink-0 p-2 bg-purple-100 rounded-xl';
+                iconDiv.innerHTML = getFileIcon(fileType);
+                
+                const fileInfo = document.createElement('div');
+                fileInfo.innerHTML = `<div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full inline-block mt-1">${(file.size / 1024 / 1024).toFixed(1)} MB</div><div class="text-xs text-purple-600 mt-1">🎵 File Audio</div>`;
+                
+                audioContainer.appendChild(iconDiv);
+                audioContainer.appendChild(fileInfo);
+                previewContent.appendChild(audioContainer);
+            } else if (fileType === 'application/pdf') {
+                const pdfContainer = document.createElement('div');
+                pdfContainer.className = 'flex items-center space-x-3';
+                
+                const iconDiv = document.createElement('div');
+                iconDiv.className = 'flex-shrink-0 p-2 bg-red-100 rounded-xl';
+                iconDiv.innerHTML = getFileIcon(fileType);
+                
+                const fileInfo = document.createElement('div');
+                fileInfo.innerHTML = `<div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full inline-block mt-1">${(file.size / 1024 / 1024).toFixed(1)} MB</div><div class="text-xs text-red-600 mt-1">📄 File PDF</div>`;
+                
+                pdfContainer.appendChild(iconDiv);
+                pdfContainer.appendChild(fileInfo);
+                previewContent.appendChild(pdfContainer);
+            }
+            
+            filePreview.classList.remove('hidden');
+        }
+
+        function removeFilePreview() {
+            selectedFile = null;
+            fileInput.value = '';
+            filePreview.classList.add('hidden');
+            previewContent.innerHTML = '';
+        }
+
+        function createMediaElement(file, fileUrl) {
+            const fileType = file.type;
+            
+            if (fileType.startsWith('image/')) {
+                return `<img src="${fileUrl}" alt="Gambar" class="max-w-xs rounded-xl cursor-pointer hover:scale-105 transition-transform duration-200 shadow-lg border border-white/20" onclick="window.open('${fileUrl}', '_blank')">`;
+            } else if (fileType === 'video/mp4') {
+                return `<video src="${fileUrl}" controls class="max-w-xs rounded-xl shadow-lg border border-white/20"></video>`;
+            } else if (fileType.startsWith('audio/')) {
+                return `<div class="audio-player max-w-xs"><div class="flex items-center space-x-2 mb-2"><div class="text-purple-600">${getFileIcon(fileType)}</div><div><div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600">Audio File</div></div></div><audio src="${fileUrl}" controls class="w-full">Browser Anda tidak mendukung audio.</audio></div>`;
+            } else if (fileType === 'application/pdf') {
+                return `<div class="pdf-viewer max-w-md"><div class="flex items-center justify-between mb-3"><div class="flex items-center space-x-2"><div class="text-red-600">${getFileIcon(fileType)}</div><div><div class="text-sm font-semibold text-gray-800">${file.name}</div><div class="text-xs text-gray-600">PDF Document</div></div></div><button onclick="window.open('${fileUrl}', '_blank')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs font-medium transition-colors duration-200 flex items-center space-x-1"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg><span>Buka</span></button></div><iframe src="${fileUrl}" class="w-full h-40 rounded-lg border border-gray-200 bg-white" title="${file.name}"></iframe></div>`;
+            }
+            return '';
+        }
+
+        // Function to process text formatting
+        function processTextFormatting(text) {
+            // Process **text** (bold and larger)
+            text = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-lg">$1</span>');
+            
+            // Process *text* (bold)
+            text = text.replace(/\*(.*?)\*/g, '<span class="font-bold">$1</span>');
+            
+            return text;
+        }
+
+        // Function to process highlighted text in AI responses
+        function processHighlightedText(message) {
+            // Regular expression to match text between `text`
+            const highlightRegex = /`(.*?)`/g;
+            
+            // Replace highlighted text with span with highlighted class
+            return message.replace(highlightRegex, '<span class="highlighted-text">$1</span>');
+        }
+
+        // Function to process code blocks in AI responses
+        function processCodeBlocks(message) {
+            // Regular expression to match code blocks with optional language specification
+            const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/g;
+            
+            // Replace code blocks with formatted HTML
+            return message.replace(codeBlockRegex, (match, language, code) => {
+                // Clean up the code (remove leading/trailing whitespace)
+                const cleanCode = code.trim();
+                
+                // Determine the language (default to 'text' if not specified)
+                const lang = language ? language.toLowerCase() : 'text';
+                
+                // Create a unique ID for this code block
+                const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
+                
+                // Return the HTML structure for the code block
+                return `
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-language">${lang}</span>
+                        <button class="copy-btn" data-code-id="${codeId}">
+                            <span>📄</span>
+                            <span>Salin</span>
+                        </button>
+                    </div>
+                    <pre class="code-content" id="${codeId}">${cleanCode}</pre>
+                </div>`;
+            });
+        }
+
+        // Function to handle copy button clicks
+        function handleCopyButtonClick(e) {
+            if (e.target.classList.contains('copy-btn') || e.target.closest('.copy-btn')) {
+                const button = e.target.classList.contains('copy-btn') ? e.target : e.target.closest('.copy-btn');
+                const codeId = button.getAttribute('data-code-id');
+                const codeElement = document.getElementById(codeId);
+                
+                if (codeElement) {
+                    // Copy the code to clipboard
+                    navigator.clipboard.writeText(codeElement.textContent)
+                        .then(() => {
+                            // Change button text to indicate success
+                            const originalText = button.innerHTML;
+                            button.innerHTML = '<span>✅</span><span>Disalin!</span>';
+                            button.classList.add('copied');
+                            
+                            // Revert after 2 seconds
+                            setTimeout(() => {
+                                button.innerHTML = originalText;
+                                button.classList.remove('copied');
+                            }, 2000);
+                        })
+                        .catch(err => {
+                            console.error('Failed to copy: ', err);
+                            button.innerHTML = '<span>❌</span><span>Gagal</span>';
+                            
+                            // Revert after 2 seconds
+                            setTimeout(() => {
+                                button.innerHTML = '<span>📄</span><span>Salin</span>';
+                            }, 2000);
+                        });
+                }
+            }
+        }
+
+        // Add event listener for copy button clicks
+        document.addEventListener('click', handleCopyButtonClick);
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) showFilePreview(file);
+        });
+
+        removeFileBtn.addEventListener('click', removeFilePreview);
+        textarea.focus();
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const userText = formData.get("text");
+
+            if (userText.trim() === '' && !selectedFile) {
+                textarea.focus();
+                return;
+            }
+
+            let userMessageContent = '';
+            let fileUrl = '';
+            
+            if (selectedFile) {
+                fileUrl = URL.createObjectURL(selectedFile);
+                userMessageContent += createMediaElement(selectedFile, fileUrl);
+                formData.set("file", selectedFile);
+            }
+            
+            if (userText.trim() !== '') {
+                if (userMessageContent) userMessageContent += '<br>';
+                // Process text formatting for user messages
+                userMessageContent += processTextFormatting(userText);
+            }
+
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'flex justify-end mb-4 message-enter';
+            userMessageDiv.innerHTML = `<div class="bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-2xl rounded-tr-sm p-4 max-w-md break-words shadow-lg border border-white/20">${userMessageContent}</div>`;
+            
+            chat.appendChild(userMessageDiv);
+            
+            const submitBtn = form.querySelector("button[type='submit']");
+            submitBtn.disabled = true;
+            textarea.disabled = true;
+            
+            removeFilePreview();
+            form.reset();
+            textarea.style.height = 'auto';
+            
+            showTypingIndicator();
+            chat.scrollTop = chat.scrollHeight;
+
+            try {
+                const res = await fetch("/chat", { method: "POST", body: formData });
+                const data = await res.json();
+
+                hideTypingIndicator();
+
+                const responseDiv = document.createElement('div');
+                responseDiv.className = 'flex justify-start mb-4 message-enter';
+
+                if (data.result) {
+                    // Process the response to detect and format code blocks
+                    let processedResponse = processCodeBlocks(data.result.replace(/\n/g, "<br>"));
+                    
+                    // Process highlighted text for AI responses
+                    processedResponse = processHighlightedText(processedResponse);
+                    
+                    // Process text formatting for AI responses
+                    processedResponse = processTextFormatting(processedResponse);
+                    
+                    responseDiv.innerHTML = `<div class="bg-glass-dark rounded-2xl rounded-tl-sm p-4 max-w-4xl break-words shadow-lg border border-white/20"><div class="flex items-center mb-2"><div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div><span class="text-xs text-gray-600 font-medium">Myana kyu tyawu - AI</span></div><div class="text-gray-800">${processedResponse}</div></div>`;
+                } else {
+                    responseDiv.innerHTML = `<div class="bg-gradient-to-r from-red-400 to-pink-400 text-white rounded-2xl rounded-tl-sm p-4 max-w-md break-words shadow-lg"><div class="flex items-center mb-2"><div class="w-2 h-2 bg-red-200 rounded-full mr-2"></div><span class="text-xs text-red-100 font-medium">Error</span></div>${data.error}</div>`;
+                }
+
+                chat.appendChild(responseDiv);
+
+            } catch (error) {
+                hideTypingIndicator();
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'flex justify-start mb-4 message-enter';
+                errorDiv.innerHTML = `<div class="bg-gradient-to-r from-red-400 to-pink-400 text-white rounded-2xl rounded-tl-sm p-4 max-w-md break-words shadow-lg"><div class="flex items-center mb-2"><div class="w-2 h-2 bg-red-200 rounded-full mr-2"></div><span class="text-xs text-red-100 font-medium">Network Error</span></div>Gagal mengirim pesan. Periksa koneksi internet Anda.</div>`;
+                
+                chat.appendChild(errorDiv);
+            }
+
+            submitBtn.disabled = false;
+            textarea.disabled = false;
+            textarea.focus();
+            chat.scrollTop = chat.scrollHeight;
+            
+            if (fileUrl) {
+                setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+            }
+        };
+
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                form.dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

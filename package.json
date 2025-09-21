@@ -1,0 +1,16 @@
+{
+  "name": "web-chat-ai",
+  "version": "1.0.0",
+  "description": "AI chat web with Gemini and file handling",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/genai": "^0.13.0",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "file-type": "^16.5.3",
+    "cors": "^2.8.5"
+  }
+}
